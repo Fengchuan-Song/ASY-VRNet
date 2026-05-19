@@ -166,7 +166,8 @@ class EvalCallback():
                                           nms_thres=self.nms_iou)
 
             if results[0] is None:
-                return
+                f.close()
+                return None, None, None
 
             top_label = np.array(results[0][:, 6], dtype='int32')
             top_conf = results[0][:, 4] * results[0][:, 5]
@@ -190,7 +191,7 @@ class EvalCallback():
             predicted_class, score[:6], str(int(left)), str(int(top)), str(int(right)), str(int(bottom))))
 
         f.close()
-        return
+        return top_boxes, top_label, top_conf
 
     def on_epoch_end(self, epoch, model_eval):
         if epoch % self.period == 0 and self.eval_flag:
@@ -286,7 +287,7 @@ class EvalCallback():
                 # ------------------------------#
                 #   获得预测txt
                 # ------------------------------#
-                top_boxes, top_label, top_conf = self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path, self.local_rank)
+                top_boxes, top_label, top_conf = self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path)
                 
                 # ------------------------------#
                 #   获得真实框txt
