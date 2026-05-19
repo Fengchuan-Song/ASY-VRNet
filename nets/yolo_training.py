@@ -167,10 +167,6 @@ class YOLOLoss(nn.Module):
                     expanded_strides, x_shifts, y_shifts,
                 )
                 torch.cuda.empty_cache()
-
-
-
-
                 num_fg += num_fg_img
                 cls_target = F.one_hot(gt_matched_classes.to(torch.int64),
                                        self.num_classes).float() * pred_ious_this_matching.unsqueeze(-1)
@@ -187,11 +183,18 @@ class YOLOLoss(nn.Module):
         fg_masks = torch.cat(fg_masks, 0)
 
         num_fg = max(num_fg, 1)
-        loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum()
-        loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum()
+        reg_preds = bbox_preds.view(-1, 4)[fg_masks]
+
+        # loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum()
+        # loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum()
+        # loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum()
+
+        loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).mean()
+        loss_iou = (self.iou_loss(reg_preds, reg_targets)).sum()
         loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum()
         reg_weight = 1.0
-        loss = reg_weight * loss_iou + 2 * loss_obj + 2 * loss_cls
+        # loss = reg_weight * loss_iou + 2 * loss_obj + 2 * loss_cls
+        loss = (reg_weight * loss_iou  + loss_cls) / num_fg + loss_obj
 
         # precision_reg = torch.exp(-self.log_vars[0])
         # loss_iou = precision_reg * loss_iou + self.log_vars[0]
