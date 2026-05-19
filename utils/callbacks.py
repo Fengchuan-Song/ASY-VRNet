@@ -1,6 +1,7 @@
 import os
 import re
 import torch
+import torch.nn as nn
 import matplotlib
 
 matplotlib.use('Agg')
