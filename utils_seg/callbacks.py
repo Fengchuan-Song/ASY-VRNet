@@ -93,7 +93,7 @@ class LossHistory():
 
 
 class EvalCallback():
-    def __init__(self, net, input_shape, num_classes, image_ids, dataset_path, log_dir, cuda, local_rank, radar_path, jpg_path\
+    def __init__(self, net, input_shape, num_classes, image_ids, dataset_path, log_dir, cuda, local_rank, radar_path, jpg_path, \
                  miou_out_path=".temp_miou_out", eval_flag=True, period=1):
         super(EvalCallback, self).__init__()
 
