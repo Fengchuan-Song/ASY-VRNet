@@ -24,8 +24,12 @@ class LossHistory():
         self.log_dir = log_dir
         self.losses = []
         self.val_loss = []
+        self.miou = []
 
-        os.makedirs(self.log_dir)
+        if os.path.exists(self.log_dir):
+            pass
+        else:
+            os.makedirs(self.log_dir)
         self.writer = SummaryWriter(self.log_dir)
         try:
             dummy_input = torch.randn(2, 3, input_shape[0], input_shape[1])
@@ -50,6 +54,13 @@ class LossHistory():
         self.writer.add_scalar('loss', loss, epoch)
         self.writer.add_scalar('val_loss', val_loss, epoch)
         self.loss_plot()
+
+    def append_miou(self, miou):
+        self.miou.append(miou)
+
+        with open(os.path.join(self.log_dir, "val_miou.txt"), 'a') as f:
+            f.write(str(miou))
+            f.write("\n")        
 
     def loss_plot(self):
         iters = range(len(self.losses))
@@ -82,7 +93,7 @@ class LossHistory():
 
 
 class EvalCallback():
-    def __init__(self, net, input_shape, num_classes, image_ids, dataset_path, log_dir, cuda, local_rank, radar_path, \
+    def __init__(self, net, input_shape, num_classes, image_ids, dataset_path, log_dir, cuda, local_rank, radar_path, jpg_path\
                  miou_out_path=".temp_miou_out", eval_flag=True, period=1):
         super(EvalCallback, self).__init__()
 
@@ -93,15 +104,17 @@ class EvalCallback():
         self.dataset_path = dataset_path
         self.log_dir = log_dir
         self.cuda = cuda
+        self.jpg_path = jpg_path
         self.local_rank = local_rank
         self.miou_out_path = miou_out_path
         self.eval_flag = eval_flag
         self.period = period
         self.radar_path = radar_path
+        self.class_name = ["background", "pier", "buoy", "sailor", "ship", "boat", "vessel", "kayak", "free-space"]
+        self.object_class_name = ["background", "pier", "buoy", "sailor", "ship", "boat", "vessel", "kayak"]
+        self.driverable_area_class_name = ["background", "free-space"]
 
-        pattern_string = "\d{10}.\d{5}"
-        pattern = re.compile(pattern_string)  # 查找数字
-        self.image_ids = [pattern.findall(image_id)[-1] for image_id in image_ids]
+        self.image_ids = [os.path.splitext(image_id.split('/')[-1].split(' ')[0])[0]for image_id in image_ids]
 
         self.mious = [0]
         self.epoches = [0]
@@ -159,11 +172,42 @@ class EvalCallback():
         image = Image.fromarray(np.uint8(pr))
         return image
 
+    def _remap_object_segmentation(self, label):
+        label = label.copy()
+        label[label == 8] = 0
+        return label
+
+    def _remap_driverable_area_segmentation(self, label):
+        label = label.copy()
+        label[(label >= 1) & (label <= 7)] = 0
+        label[label == 8] = 1
+        return label
+
+    def _save_remapped_miou_pngs(self, gt_dir, pred_dir, object_gt_dir, object_pred_dir,
+                                 driverable_area_gt_dir, driverable_area_pred_dir):
+        for image_id in self.image_ids:
+            gt = np.array(Image.open(os.path.join(gt_dir, image_id + ".png")))
+            pred = np.array(Image.open(os.path.join(pred_dir, image_id + ".png")))
+
+            object_gt = self._remap_object_segmentation(gt)
+            object_pred = self._remap_object_segmentation(pred)
+            driverable_area_gt = self._remap_driverable_area_segmentation(gt)
+            driverable_area_pred = self._remap_driverable_area_segmentation(pred)
+
+            Image.fromarray(np.uint8(object_gt)).save(os.path.join(object_gt_dir, image_id + ".png"))
+            Image.fromarray(np.uint8(object_pred)).save(os.path.join(object_pred_dir, image_id + ".png"))
+            Image.fromarray(np.uint8(driverable_area_gt)).save(os.path.join(driverable_area_gt_dir, image_id + ".png"))
+            Image.fromarray(np.uint8(driverable_area_pred)).save(os.path.join(driverable_area_pred_dir, image_id + ".png"))
+
     def on_epoch_end(self, epoch, model_eval):
         if epoch % self.period == 0 and self.eval_flag:
             self.net = model_eval
-            gt_dir = os.path.join(self.dataset_path, "VOC2007/SegmentationClass/")
+            gt_dir = self.dataset_path + '/'
             pred_dir = os.path.join(self.miou_out_path, 'detection-results')
+            object_gt_dir = os.path.join(self.miou_out_path, 'object-gt')
+            object_pred_dir = os.path.join(self.miou_out_path, 'object-detection-results')
+            driverable_area_gt_dir = os.path.join(self.miou_out_path, 'driverable-area-gt')
+            driverable_area_pred_dir = os.path.join(self.miou_out_path, 'driverable-area-detection-results')
             if not os.path.exists(self.miou_out_path):
                 os.makedirs(self.miou_out_path)
             if not os.path.exists(pred_dir):
@@ -180,7 +224,7 @@ class EvalCallback():
                 # -------------------------------#
                 #   从文件中读取图像
                 # -------------------------------#
-                image_path = os.path.join(self.dataset_path, "VOC2007/JPEGImages/" + image_id + ".jpg")
+                image_path = os.path.join(self.jpg_path, image_id + ".jpg")
                 image = Image.open(image_path)
                 # ------------------------------#
                 #   获得预测txt
@@ -189,13 +233,43 @@ class EvalCallback():
                 image.save(os.path.join(pred_dir, image_id + ".png"))
 
             print("Calculate miou.")
-            _, IoUs, _, _ = compute_mIoU(gt_dir, pred_dir, self.image_ids, self.num_classes, None)  # 执行计算mIoU的函数
-            temp_miou = np.nanmean(IoUs) * 100
+            self._save_remapped_miou_pngs(
+                gt_dir, pred_dir, object_gt_dir, object_pred_dir,
+                driverable_area_gt_dir, driverable_area_pred_dir
+            )
+            _, object_IoUs, _, _ = compute_mIoU(
+                object_gt_dir, object_pred_dir, self.image_ids,
+                len(self.object_class_name), self.object_class_name
+            )
+            _, driverable_area_IoUs, _, _ = compute_mIoU(
+                driverable_area_gt_dir, driverable_area_pred_dir, self.image_ids,
+                len(self.driverable_area_class_name), self.driverable_area_class_name
+            )
+            miou_object = np.nanmean(object_IoUs) * 100
+            miou_driverable_area = np.nanmean(driverable_area_IoUs) * 100
+            temp_miou = np.nanmean([miou_object, miou_driverable_area])
 
             self.mious.append(temp_miou)
             self.epoches.append(epoch)
 
             with open(os.path.join(self.log_dir, "epoch_miou.txt"), 'a') as f:
+                f.write("Object segmentation IoU:")
+                f.write('\n')
+                for index in range(len(self.object_class_name)):
+                    f.write(f"{self.object_class_name[index]}: {object_IoUs[index] * 100}")
+                    f.write('\n')
+
+                f.write("Driverable area segmentation IoU:")
+                f.write('\n')
+                for index in range(len(self.driverable_area_class_name)):
+                    f.write(f"{self.driverable_area_class_name[index]}: {driverable_area_IoUs[index] * 100}")
+                    f.write('\n')
+                
+                f.write(f"mIoU Driverable Area: {miou_driverable_area}")
+                f.write('\n')
+                f.write(f"mIoU Object: {miou_object}")
+                f.write('\n')
+
                 f.write(str(temp_miou))
                 f.write("\n")
 

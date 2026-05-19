@@ -8,6 +8,49 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
+def mIoU(inputs, target, smooth=1e-10):
+    # 1. 统一尺寸：将预测图缩放到与标签一致
+    n, c, h, w = inputs.size()
+    nt, ht, wt, ct = target.size() # 假设 target 是 [N, H, W, C]
+    if h != ht or w != wt:
+        inputs = F.interpolate(inputs, size=(ht, wt), mode="bilinear", align_corners=True)
+
+    # 2. 判定逻辑修改：使用 argmax 替代 threshold
+    # 这样能保证每个像素只属于概率最大的那一类，与混淆矩阵逻辑对齐
+    # pred_labels 形状为 [N, H, W]
+    pred_labels = torch.argmax(inputs, dim=1)
+    
+    # 3. 将预测转为 One-hot 编码，形状变为 [N, H, W, C]
+    # 注意：num_classes 应该等于 c
+    pred_onehot = F.one_hot(pred_labels, num_classes=c).float()
+    
+    # 4. 展平数据，只保留最后一维（类别维）
+    # 展平后形状为 [N*H*W, C]
+    temp_inputs = pred_onehot.view(-1, c)
+    temp_target = target.view(-1, ct).float()
+
+    # 5. 计算 TP, FP, FN (按类别求和)
+    # 即使 target 原本包含背景类（最后一维），我们也只取前 C 个类别计算
+    # 如果你的 target 和 inputs 类别数一致，直接计算即可
+    tp = torch.sum(temp_target[..., :-1] * temp_inputs, dim=0)
+    fp = torch.sum(temp_inputs, dim=0) - tp
+    fn = torch.sum(temp_target[..., :-1], dim=0) - tp
+
+    # 6. 计算 IoU
+    union = tp + fp + fn
+    # 关键点：使用 valid_mask 识别出在真值或预测中出现过的类别
+    # 这对应了 Numpy 版中的 np.nanmean 逻辑
+    valid_mask = union > 0
+    
+    iou = (tp + smooth) / (union + smooth)
+
+    # 7. 只对有效的类别求平均
+    if valid_mask.sum() > 0:
+        miou = torch.mean(iou[valid_mask])
+    else:
+        miou = torch.tensor(0.0).to(inputs.device)
+        
+    return miou
 
 def f_score(inputs, target, beta=1, smooth=1e-5, threhold=0.5):
     n, c, h, w = inputs.size()

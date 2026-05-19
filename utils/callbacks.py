@@ -23,8 +23,13 @@ class LossHistory():
         self.log_dir = log_dir
         self.losses = []
         self.val_loss = []
+        self.mAP50 = []
+        self.mAP50_95 = []
 
-        os.makedirs(self.log_dir)
+        if os.path.exists(self.log_dir):
+            pass
+        else:
+            os.makedirs(self.log_dir)
         self.writer = SummaryWriter(self.log_dir)
         try:
             dummy_input = torch.randn(2, 3, input_shape[0], input_shape[1])
@@ -49,6 +54,20 @@ class LossHistory():
         self.writer.add_scalar('loss', loss, epoch)
         self.writer.add_scalar('val_loss', val_loss, epoch)
         self.loss_plot()
+
+    def append_mAP50(self, map50):
+        self.mAP50.append(map50)
+
+        with open(os.path.join(self.log_dir, "val_mAP50.txt"), 'a') as f:
+            f.write(str(map50))
+            f.write("\n")
+
+    def append_mAP50_95(self, map50_95):
+        self.mAP50_95.append(map50_95)
+
+        with open(os.path.join(self.log_dir, "val_mAP50_95.txt"), 'a') as f:
+            f.write(str(map50_95))
+            f.write("\n")   
 
     def loss_plot(self):
         iters = range(len(self.losses))
@@ -182,21 +201,79 @@ class EvalCallback():
             if not os.path.exists(os.path.join(self.map_out_path, "detection-results")):
                 os.makedirs(os.path.join(self.map_out_path, "detection-results"))
             print("Get map.")
+
+            # ----------------- 重参数化 -------------------- #
+            for child in self.net.children():
+                if isinstance(child, nn.Module):
+                    print('deploy:', type(child).__name__)
+                    child.deploy = True
+
+            for module in self.net.modules():
+                if hasattr(module, 'reparameterize'):
+                    print('reparameterize:', type(module).__name__)
+                    module.reparameterize()
+            # ----------------------------------------------- #
+
+            # predict_result_path = os.path.join(self.log_dir, f"predict_epoch_{epoch}_test.txt")
+            # with open(predict_result_path, "w") as f_predict:
+            #     for annotation_line in tqdm(self.val_lines):
+            #         line = annotation_line.split()
+
+            #         # ------------------------------#
+            #         #   读取雷达特征map
+            #         # ------------------------------#
+            #         name = os.path.splitext(annotation_line.split('/')[-1].split(' ')[0])[0]
+
+            #         radar_path = os.path.join(self.radar_path, name + '.npz')
+            #         radar_data = np.load(radar_path)['arr_0']
+            #         radar_data = torch.from_numpy(radar_data).type(torch.cuda.FloatTensor).unsqueeze(0)
+
+            #         image_id = name
+            #         # ------------------------------#
+            #         #   读取图像并转换成RGB图像
+            #         # ------------------------------#
+            #         image = Image.open(line[0])
+            #         # ------------------------------#
+            #         #   获得预测框
+            #         # ------------------------------#
+            #         gt_boxes = np.array([np.array(list(map(int, box.split(',')))) for box in line[1:]])
+            #         # ------------------------------#
+            #         #   获得预测txt
+            #         # ------------------------------#
+            #         top_boxes, top_label, top_conf = self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path, self.local_rank)
+                    
+            #         f_predict.write(os.path.join('H:/dataset/WaterScenes/images', line[0].split('/')[-1]))
+            #         if top_boxes is not None:
+            #             for i in range(len(top_label)):
+            #                 # top_boxes 的顺序是 [ymin, xmin, ymax, xmax]
+            #                 ymin, xmin, ymax, xmax = top_boxes[i]
+            #                 class_id = top_label[i]
+            #                 f_predict.write(f" {int(xmin)},{int(ymin)},{int(xmax)},{int(ymax)},{int(class_id)}")
+            #         f_predict.write("\n")
+            #         # ------------------------------#
+            #         #   获得真实框txt
+            #         # ------------------------------#
+            #         with open(os.path.join(self.map_out_path, "ground-truth/" + image_id + ".txt"), "w") as new_f:
+            #             for box in gt_boxes:
+            #                 left, top, right, bottom, obj = box
+            #                 # print(obj)
+            #                 obj_name = self.class_names[obj]
+            #                 new_f.write("%s %s %s %s %s\n" % (obj_name, left, top, right, bottom))
+
+            # ----------------------------------------------- #
             for annotation_line in tqdm(self.val_lines):
                 line = annotation_line.split()
 
                 # ------------------------------#
                 #   读取雷达特征map
                 # ------------------------------#
-                pattern_string = "\d{10}.\d{5}"
-                pattern = re.compile(pattern_string)  # 查找数字
-                name = pattern.findall(annotation_line)[-1]
+                name = os.path.splitext(annotation_line.split('/')[-1].split(' ')[0])[0]
 
                 radar_path = os.path.join(self.radar_path, name + '.npz')
                 radar_data = np.load(radar_path)['arr_0']
-                radar_data = torch.from_numpy(radar_data).type(torch.FloatTensor).unsqueeze(0).cuda(self.local_rank)
+                radar_data = torch.from_numpy(radar_data).type(torch.cuda.FloatTensor).unsqueeze(0)
 
-                image_id = os.path.basename(line[0]).split('.')[0]
+                image_id = name
                 # ------------------------------#
                 #   读取图像并转换成RGB图像
                 # ------------------------------#
@@ -208,8 +285,8 @@ class EvalCallback():
                 # ------------------------------#
                 #   获得预测txt
                 # ------------------------------#
-                self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path)
-
+                top_boxes, top_label, top_conf = self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path, self.local_rank)
+                
                 # ------------------------------#
                 #   获得真实框txt
                 # ------------------------------#
@@ -221,15 +298,31 @@ class EvalCallback():
 
             print("Calculate Map.")
             try:
-                temp_map = get_coco_map(class_names=self.class_names, path=self.map_out_path)[1]
+                temp_map = get_coco_map(class_names=self.class_names, path=self.map_out_path)
             except:
                 temp_map = get_map(self.MINOVERLAP, False, path=self.map_out_path)
-            self.maps.append(temp_map)
+            self.maps.append(temp_map[1])
             self.epoches.append(epoch)
 
+            # results = (
+            #     f"Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {temp_map[0]} \n"
+            #     f"Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = {temp_map[1]} \n"
+            #     f"Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = {temp_map[2]} \n"
+            #     f"Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = {temp_map[3]} \n"
+            #     f"Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = {temp_map[4]} \n"
+            #     f"Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = {temp_map[5]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = {temp_map[6]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = {temp_map[7]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = {temp_map[8]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = {temp_map[9]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = {temp_map[10]} \n"
+            #     f"Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = {temp_map[11]}" 
+            # )
+
             with open(os.path.join(self.log_dir, "epoch_map.txt"), 'a') as f:
-                f.write(str(temp_map))
+                f.write(str(temp_map[1]))
                 f.write("\n")
+                # f.write(results)
 
             plt.figure()
             plt.plot(self.epoches, self.maps, 'red', linewidth=2, label='train map')
@@ -246,3 +339,5 @@ class EvalCallback():
 
             print("Get map done.")
             shutil.rmtree(self.map_out_path)
+
+        return temp_map[1], temp_map[0]
