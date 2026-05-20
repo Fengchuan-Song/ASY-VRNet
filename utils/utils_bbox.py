@@ -120,6 +120,8 @@ def non_max_suppression(prediction, num_classes, input_shape, image_shape, lette
         #-------------------------------------------------------------------------#
         detections = torch.cat((image_pred[:, :5], class_conf, class_pred.float()), 1)
         detections = detections[conf_mask]
+        if detections.size(0) == 0:
+            continue
         
         nms_out_index = boxes.batched_nms(
             detections[:, :4],

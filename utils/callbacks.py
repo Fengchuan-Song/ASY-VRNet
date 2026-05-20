@@ -263,8 +263,13 @@ class EvalCallback():
             #                 new_f.write("%s %s %s %s %s\n" % (obj_name, left, top, right, bottom))
 
             # ----------------------------------------------- #
+            total_images = 0
+            detected_images = 0
+            total_detections = 0
+            max_conf = 0.0
             for annotation_line in tqdm(self.val_lines):
                 line = annotation_line.split()
+                total_images += 1
 
                 # ------------------------------#
                 #   读取雷达特征map
@@ -288,6 +293,10 @@ class EvalCallback():
                 #   获得预测txt
                 # ------------------------------#
                 top_boxes, top_label, top_conf = self.get_map_txt(image_id, image, radar_data, self.class_names, self.map_out_path)
+                if top_conf is not None and len(top_conf) > 0:
+                    detected_images += 1
+                    total_detections += len(top_conf)
+                    max_conf = max(max_conf, float(np.max(top_conf)))
                 
                 # ------------------------------#
                 #   获得真实框txt
@@ -298,6 +307,10 @@ class EvalCallback():
                         obj_name = self.class_names[obj]
                         new_f.write("%s %s %s %s %s\n" % (obj_name, left, top, right, bottom))
 
+            print(
+                "Eval detections: %d/%d images have predictions, %d boxes total, max score %.4f at confidence %.4f."
+                % (detected_images, total_images, total_detections, max_conf, self.confidence)
+            )
             print("Calculate Map.")
             try:
                 temp_map = get_coco_map(class_names=self.class_names, path=self.map_out_path)
