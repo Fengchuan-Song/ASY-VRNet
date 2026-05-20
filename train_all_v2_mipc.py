@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("--phi", type=str, default='nano')
     parser.add_argument("--resolution", type=int, default=320)
     parser.add_argument("--bs", type=int, default=32)
-    parser.add_argument("--epoch", type=int, default=200)
+    parser.add_argument("--epoch", type=int, default=100)
     parser.add_argument("--lr_init", type=float, default=1e-2)
     parser.add_argument("--lr_decay", type=str, default="cos")
     parser.add_argument("--opt", type=str, default='adam')
