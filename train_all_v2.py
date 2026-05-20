@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------#
     # classes_path = 'model_data/waterscenes_benchmark_wo_pier.txt'
     classes_path = 'model_data/waterscenes_benchmark_ship_only.txt'
-    model_path = ''
+    model_path = '/root/autodl-tmp/EfficientVRNet/EfficientVRNe/weights/best_epoch_weights_ep036_mAP500.735_mAP50-950.431_mIoU0.744.pth'
 
     # ------------------------------------------------------#
     #   input_shape     all models support 320*320, all models except mobilevit support 416*416
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     #   Freeze_batch_size   模型冻结训练的batch_size
     #                       (当Freeze_Train=False时失效)
     # ------------------------------------------------------------------#
-    Init_Epoch = 0
+    Init_Epoch = 36
     Freeze_Epoch = 0
     Freeze_batch_size = 32
     # ------------------------------------------------------------------#
