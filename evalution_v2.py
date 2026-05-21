@@ -273,7 +273,7 @@ if __name__ == "__main__":
     # ---------------------------------------#
     epoch = 0
     model_train_eval = model_train.eval()
-    eval_callback.on_epoch_end(epoch, model_train_eval)
+    # eval_callback.on_epoch_end(epoch, model_train_eval)
     eval_callback_seg.on_epoch_end(epoch, model_train_eval)
     # eval_callback_seg_wl.on_epoch_end(epoch, model_train_eval)
     # if is_radar_pc_seg:
