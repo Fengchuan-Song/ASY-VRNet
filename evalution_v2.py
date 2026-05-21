@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # 添加参数解析
     parser.add_argument("--cuda", type=str, default="True")
     parser.add_argument("--ddp", type=str, default="False")
-    parser.add_argument("--model_path", type=str, default='/data/Achelous_v3.4/Achelous_v3.4-MIPC-2/weights/best_epoch_weights_ep091_mAP500.864_mAP50-950.600_mIoU0.803_mIoUw0.672.pth')
+    parser.add_argument("--model_path", type=str, default='/root/autodl-tmp/EfficientVRNet/EfficientVRNe/weights/best_epoch_weights_ep097_mAP500.791_mAP50-950.487_mIoU0.784.pth')
     parser.add_argument("--fp16", type=str, default="True")
     parser.add_argument("--phi", type=str, default='nano')
     parser.add_argument("--resolution", type=int, default=320)
