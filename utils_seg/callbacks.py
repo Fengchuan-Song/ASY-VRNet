@@ -208,10 +208,15 @@ class EvalCallback():
             object_pred_dir = os.path.join(self.miou_out_path, 'object-detection-results')
             driverable_area_gt_dir = os.path.join(self.miou_out_path, 'driverable-area-gt')
             driverable_area_pred_dir = os.path.join(self.miou_out_path, 'driverable-area-detection-results')
-            if not os.path.exists(self.miou_out_path):
-                os.makedirs(self.miou_out_path)
-            if not os.path.exists(pred_dir):
-                os.makedirs(pred_dir)
+            for miou_dir in [
+                self.miou_out_path,
+                pred_dir,
+                object_gt_dir,
+                object_pred_dir,
+                driverable_area_gt_dir,
+                driverable_area_pred_dir,
+            ]:
+                os.makedirs(miou_dir, exist_ok=True)
             print("Get miou.")
             for image_id in tqdm(self.image_ids):
                 # ------------------------------#
