@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # 添加参数解析
     parser.add_argument("--cuda", type=str, default="True")
     parser.add_argument("--ddp", type=str, default="False")
-    parser.add_argument("--model_path", type=str, default='/root/autodl-tmp/EfficientVRNet/EfficientVRNe/weights/best_epoch_weights_ep097_mAP500.791_mAP50-950.487_mIoU0.784.pth')
+    parser.add_argument("--model_path", type=str, default='/root/autodl-tmp/EfficientVRNet/EfficientVRNe/weights/best_epoch_weights_ep075_mAP500.781_mAP50-950.478_mIoU0.775.pth')
     parser.add_argument("--fp16", type=str, default="True")
     parser.add_argument("--phi", type=str, default='nano')
     parser.add_argument("--resolution", type=int, default=320)
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     # ---------------------------------------#
     epoch = 0
     model_train_eval = model_train.eval()
-    # eval_callback.on_epoch_end(epoch, model_train_eval)
+    eval_callback.on_epoch_end(epoch, model_train_eval)
     eval_callback_seg.on_epoch_end(epoch, model_train_eval)
     # eval_callback_seg_wl.on_epoch_end(epoch, model_train_eval)
     # if is_radar_pc_seg:
