@@ -129,9 +129,9 @@ if __name__ == "__main__":
     val_annotation_path = args.data_root + '/MIPC_shipOnly/2007_val.txt'
     test_annotation_path = args.data_root + '/MIPC_shipOnly/2007_test.txt'
 
-    test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/fog.txt'
-    # test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/low_light.txt'
-    # test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/rainy_water.txt'
+    test_annotation_path = args.data_root + '/autodl_adverse_shipOnly/fog.txt'
+    # test_annotation_path = args.data_root + '/autodl_adverse_shipOnly/low_light.txt'
+    # test_annotation_path = args.data_root + '/autodl_adverse_shipOnly/rainy_water.txt'
 
 
     # ----------------------------------------------------#
