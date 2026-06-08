@@ -129,6 +129,11 @@ if __name__ == "__main__":
     val_annotation_path = args.data_root + '/MIPC_shipOnly/2007_val.txt'
     test_annotation_path = args.data_root + '/MIPC_shipOnly/2007_test.txt'
 
+    test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/fog.txt'
+    # test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/low_light.txt'
+    # test_annotation_path = args.data_root + '/MIPC_adverse_shipOnly/rainy_water.txt'
+
+
     # ----------------------------------------------------#
     #   jpg图像路径
     # ----------------------------------------------------#
@@ -218,8 +223,8 @@ if __name__ == "__main__":
     #   记录Loss
     # ----------------------#
     time_str = datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')
-    log_dir = os.path.join(save_dir, "eval_" + str(time_str))
-    log_dir_seg = os.path.join(save_dir_seg, "eval_" + str(time_str))
+    log_dir = os.path.join(save_dir, "eval_fog_" + str(time_str))
+    log_dir_seg = os.path.join(save_dir_seg, "eval_fog_" + str(time_str))
     loss_history = LossHistory(log_dir, model, input_shape=input_shape)
     loss_history_seg = LossHistory_seg(log_dir_seg, model, input_shape=input_shape)
 
